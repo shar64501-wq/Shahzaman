@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Family Chat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    background: #e5ddd5;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: #075e54;
+    color: #fff;
+    padding: 14px 16px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg {
+    max-width: 78%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: #fff;
+    align-self: flex-start;
+    word-wrap: break-word;
+  }
+  .msg.me { background: #dcf8c6; align-self: flex-end; }
+  .msg .name { font-size: 12px; font-weight: 600; color: #075e54; margin-bottom: 2px; }
+  .msg .time { font-size: 10px; color: #888; text-align: right; margin-top: 2px; }
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: #f0f0f0;
+  }
+  input[type=text] {
+    flex: 1;
+    padding: 12px 14px;
+    border: none;
+    border-radius: 24px;
+    font-size: 16px;
+  }
+  button {
+    background: #075e54;
+    color: #fff;
+    border: none;
+    border-radius: 24px;
+    padding: 0 20px;
+    font-size: 16px;
+  }
+  #status { font-size: 12px; font-weight: 400; opacity: .8; }
+</style>
+</head>
+<body>
+  <header>Family Chat <span id="status"></span></header>
+  <div id="messages"></div>
+  <form id="form">
+    <input type="text" id="input" placeholder="Type a message" autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCxv51_74fBqqz08vZm2VCRp8rEGWuQ5hI",
+    authDomain: "chatapp-2bf89.firebaseapp.com",
+    projectId: "chatapp-2bf89",
+    storageBucket: "chatapp-2bf89.firebasestorage.app",
+    messagingSenderId: "106150054493",
+    appId: "1:106150054493:web:48040d850e8a5c428cdbb4",
+    measurementId: "G-TBNZSW6682"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const messagesRef = collection(db, "messages");
+
+  // Ask for the person's name once and remember it
+  let myName = localStorage.getItem("chatName");
+  if (!myName) {
+    myName = prompt("What is your name?") || "Me";
+    localStorage.setItem("chatName", myName);
+  }
+
+  const box = document.getElementById("messages");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const status = document.getElementById("status");
+
+  function render(list) {
+    box.innerHTML = "";
+    list.forEach(function (m) {
+      const div = document.createElement("div");
+      div.className = "msg" + (m.name === myName ? " me" : "");
+      div.innerHTML = '<div class="name"></div><div class="text"></div><div class="time"></div>';
+      div.querySelector(".name").textContent = m.name;
+      div.querySelector(".text").textContent = m.text;
+      div.querySelector(".time").textContent =
+        new Date(m.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // Live updates: runs every time anyone sends a message
+  const q = query(messagesRef, orderBy("time"), limit(200));
+  onSnapshot(q,
+    function (snap) {
+      status.textContent = "• online";
+      render(snap.docs.map(function (d) { return d.data(); }));
+    },
+    function (err) {
+      status.textContent = "• not connected";
+      console.error(err);
+      alert("Could not connect: " + err.message);
+    }
+  );
+
+  // Send a message
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    try {
+      await addDoc(messagesRef, { name: myName, text: text, time: Date.now() });
+    } catch (err) {
+      alert("Message not sent: " + err.message);
+    }
+  });
+</script>
+</body>
+</html>
